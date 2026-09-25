@@ -88,12 +88,28 @@ function setApiUrl(v) { localStorage.setItem('attendance_api_url', v); }
 
 async function apiGet(params) {
   const url = getApiUrl() + '?' + new URLSearchParams(params).toString();
-  const res = await fetch(url);
-  return res.json();
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 20000);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(t);
+    return await res.json();
+  } catch (err) {
+    clearTimeout(t);
+    return { ok: false, error: 'network_error' };
+  }
 }
 async function apiPost(body) {
-  const res = await fetch(getApiUrl(), { method: 'POST', body: JSON.stringify(body) });
-  return res.json();
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 20000);
+  try {
+    const res = await fetch(getApiUrl(), { method: 'POST', body: JSON.stringify(body), signal: controller.signal });
+    clearTimeout(t);
+    return await res.json();
+  } catch (err) {
+    clearTimeout(t);
+    return { ok: false, error: 'network_error' };
+  }
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -271,14 +287,11 @@ async function renderAdmin() {
   loadSessions();
 }
 
-async function loadSessions() {
+function renderSessionList(sessions) {
   const listEl = document.getElementById('sessionsList');
-  const r = await apiGet({ action: 'listSessions' });
-  if (!r.ok || !r.sessions.length) {
-    listEl.innerHTML = 'No sessions yet.'; return;
-  }
+  if (!sessions.length) { listEl.innerHTML = 'No sessions yet.'; return; }
   listEl.innerHTML = '';
-  r.sessions.slice().reverse().forEach((s) => {
+  sessions.slice().reverse().forEach((s) => {
     const div = document.createElement('div');
     div.className = 'session-item';
     div.innerHTML = `
@@ -293,18 +306,41 @@ async function loadSessions() {
     const expand = div.querySelector('.expand');
     div.querySelector('[data-act="qr"]').onclick = () => {
       const link = `${location.origin}${location.pathname}?session=${s.id}&api=${encodeURIComponent(getApiUrl())}`;
+      if (typeof QRCode === 'undefined') {
+        expand.innerHTML = `<p class="msg bad">The QR library didn't load (check your connection and refresh). Here's the link instead:</p><p class="small" style="word-break:break-all;">${link}</p>`;
+        return;
+      }
       expand.innerHTML = `<div id="qrbox"></div><p class="small" style="text-align:center; word-break:break-all;">${link}</p>`;
       new QRCode(expand.querySelector('#qrbox'), { text: link, width: 200, height: 200 });
     };
     div.querySelector('[data-act="att"]').onclick = async () => {
       expand.innerHTML = 'Loading...';
       const ar = await apiGet({ action: 'listAttendance', id: s.id });
-      if (!ar.ok || !ar.attendance.length) { expand.innerHTML = '<p class="small">No check-ins yet.</p>'; return; }
+      if (!ar.ok) { expand.innerHTML = '<p class="msg bad">Couldn\\'t load attendees. Try again.</p>'; return; }
+      if (!ar.attendance.length) { expand.innerHTML = '<p class="small">No check-ins yet.</p>'; return; }
       const rows = ar.attendance.map(a => `<tr><td>${a.studentName}</td><td>${fmtTime(a.timestamp)}</td></tr>`).join('');
       expand.innerHTML = `<table><tr><th>Name</th><th>Time</th></tr>${rows}</table>`;
     };
     listEl.appendChild(div);
   });
+}
+
+async function loadSessions() {
+  const listEl = document.getElementById('sessionsList');
+  const cacheKey = 'attendance_sessions_cache';
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) {
+    try { renderSessionList(JSON.parse(cached)); } catch {}
+  } else {
+    listEl.innerHTML = 'Loading...';
+  }
+  const r = await apiGet({ action: 'listSessions' });
+  if (!r.ok) {
+    if (!cached) listEl.innerHTML = '<p class="msg bad">Couldn\\'t reach the API. Check the link and your connection, then reopen this page.</p>';
+    return;
+  }
+  localStorage.setItem(cacheKey, JSON.stringify(r.sessions));
+  renderSessionList(r.sessions);
 }
 
 // ---------- ROUTER ----------
