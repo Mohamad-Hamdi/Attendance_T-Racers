@@ -311,7 +311,11 @@ function renderSessionList(sessions) {
         return;
       }
       expand.innerHTML = `<div id="qrbox"></div><p class="small" style="text-align:center; word-break:break-all;">${link}</p>`;
-      new QRCode(expand.querySelector('#qrbox'), { text: link, width: 200, height: 200 });
+      try {
+        new QRCode(expand.querySelector('#qrbox'), { text: link, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.L });
+      } catch (err) {
+        expand.querySelector('#qrbox').innerHTML = '<p class="msg bad">This link is too long to fit in a QR code. Shorten your API URL or use a URL shortener.</p>';
+      }
     };
     div.querySelector('[data-act="att"]').onclick = async () => {
       expand.innerHTML = 'Loading...';
