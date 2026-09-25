@@ -267,9 +267,16 @@ async function apiPost(body) {
 
     const now = new Date();
     const day = now.getDay();
-    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const toMinutes = (hhmm) => {
+      const [h, m] = String(hhmm).split(':').map(Number);
+      return h * 60 + m;
+    };
+    const GRACE_MINUTES = 2; // absorbs GPS/network delay between tapping "Check In" and this check
+    const startMinutes = toMinutes(session.startTime) - GRACE_MINUTES;
+    const endMinutes = toMinutes(session.endTime) + GRACE_MINUTES;
     if (!session.days.includes(day)) return { ok: false, error: 'wrong_day' };
-    if (time < session.startTime || time > session.endTime) return { ok: false, error: 'outside_time_window' };
+    if (nowMinutes < startMinutes || nowMinutes > endMinutes) return { ok: false, error: 'outside_time_window' };
 
     const dist = haversineMeters(session.lat, session.lng, body.lat, body.lng);
     // Phone GPS is rarely exact — add a tolerance based on the device's own reported
