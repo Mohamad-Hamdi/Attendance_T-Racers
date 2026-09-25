@@ -311,6 +311,11 @@ async function apiPost(body) {
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function fmtTime(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return String(iso);
+  return d.toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
 function daysLabel(csv) {
   const arr = Array.isArray(csv) ? csv : String(csv).split(',');
   return arr.map((d) => DAY_NAMES[parseInt(d, 10)] || '?').join(', ');
