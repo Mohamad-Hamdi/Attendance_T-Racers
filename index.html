@@ -316,7 +316,7 @@ function renderSessionList(sessions) {
     div.querySelector('[data-act="att"]').onclick = async () => {
       expand.innerHTML = 'Loading...';
       const ar = await apiGet({ action: 'listAttendance', id: s.id });
-      if (!ar.ok) { expand.innerHTML = '<p class="msg bad">Couldn\\'t load attendees. Try again.</p>'; return; }
+      if (!ar.ok) { expand.innerHTML = "<p class=\"msg bad\">Couldn't load attendees. Try again.</p>"; return; }
       if (!ar.attendance.length) { expand.innerHTML = '<p class="small">No check-ins yet.</p>'; return; }
       const rows = ar.attendance.map(a => `<tr><td>${a.studentName}</td><td>${fmtTime(a.timestamp)}</td></tr>`).join('');
       expand.innerHTML = `<table><tr><th>Name</th><th>Time</th></tr>${rows}</table>`;
@@ -336,7 +336,7 @@ async function loadSessions() {
   }
   const r = await apiGet({ action: 'listSessions' });
   if (!r.ok) {
-    if (!cached) listEl.innerHTML = '<p class="msg bad">Couldn\\'t reach the API. Check the link and your connection, then reopen this page.</p>';
+    if (!cached) listEl.innerHTML = "<p class=\"msg bad\">Couldn't reach the API. Check the link and your connection, then reopen this page.</p>";
     return;
   }
   localStorage.setItem(cacheKey, JSON.stringify(r.sessions));
