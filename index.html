@@ -625,20 +625,40 @@ function renderSessionList(sessions) {
         <button data-act="qr">QR Code</button>
         <button data-act="att" class="secondary">Attendees</button>
       </div>
-      <div class="expand"></div>
     `;
-    const expand = div.querySelector('.expand');
     div.querySelector('[data-act="qr"]').onclick = () => openQrModal(s);
-    div.querySelector('[data-act="att"]').onclick = async () => {
-      expand.innerHTML = 'Loading...';
-      const ar = await apiGet({ action: 'listAttendance', id: s.id });
-      if (!ar.ok) { expand.innerHTML = "<p class=\"msg bad\">Couldn't load attendees. Check your Firestore rules/config and try again.</p><button class=\"secondary\" data-act=\"retry-att\" style=\"width:auto;padding:6px 10px;\">Retry</button>"; const retryBtn = expand.querySelector('[data-act=\"retry-att\"]'); if (retryBtn) retryBtn.onclick = () => div.querySelector('[data-act=\"att\"]').onclick(); return; }
-      if (!ar.attendance.length) { expand.innerHTML = '<p class="small">No check-ins yet.</p>'; return; }
-      const rows = ar.attendance.map(a => `<tr><td>${a.studentName}</td><td>${fmtTime(a.timestamp)}</td></tr>`).join('');
-      expand.innerHTML = `<table><tr><th>Name</th><th>Time</th></tr>${rows}</table>`;
-    };
+    div.querySelector('[data-act="att"]').onclick = () => openAttendeesModal(s);
     listEl.appendChild(div);
   });
+}
+
+// ---------- ATTENDEES MODAL ----------
+async function openAttendeesModal(s) {
+  const box = document.getElementById('modalBox');
+  box.innerHTML = `
+    ${brandHeader()}
+    <div class="session-name">${s.name}</div>
+    <p class="small">${daysLabel(s.days)} · ${s.startTime}–${s.endTime}</p>
+    <div id="attendeesBody">Loading...</div>
+    <button class="secondary" id="closeAttModalBtn">Close</button>
+  `;
+  document.getElementById('modalBackdrop').classList.add('open');
+  document.getElementById('closeAttModalBtn').onclick = closeQrModal;
+
+  const body = document.getElementById('attendeesBody');
+  const ar = await apiGet({ action: 'listAttendance', id: s.id });
+  if (!ar.ok) {
+    body.innerHTML = `<p class="msg bad">Couldn't load attendees. Check your Firestore rules/config and try again.</p><button class="secondary" id="retryAttModalBtn" style="width:auto;padding:6px 10px;">Retry</button>`;
+    document.getElementById('retryAttModalBtn').onclick = () => openAttendeesModal(s);
+    return;
+  }
+  if (!ar.attendance.length) {
+    body.innerHTML = '<p class="small">No check-ins yet.</p>';
+    return;
+  }
+  const sorted = ar.attendance.slice().sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  const rows = sorted.map((a, i) => `<tr><td>${i + 1}</td><td>${a.studentName}</td><td>${fmtTime(a.timestamp)}</td></tr>`).join('');
+  body.innerHTML = `<p class="small">${sorted.length} checked in</p><table><tr><th>#</th><th>Name</th><th>Time</th></tr>${rows}</table>`;
 }
 
 async function loadSessions() {
